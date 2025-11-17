@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.Rendering;
 
 public static class SortingAlgorithms
 {
@@ -141,7 +142,7 @@ public static class SortingAlgorithms
     }
 
     // SHELL SORT
-    // Time Complexity: O(n^2) promedio
+    // Time Complexity: O(n^2)
     // Space Complexity: O(1)
     public static void ShellSort<T>(List<T> list) where T : IComparable<T>
     {
@@ -261,111 +262,179 @@ public static class SortingAlgorithms
     // Space Complexity: O(n)
     public static void AdaptiveMergeSort<T>(List<T> list) where T : IComparable<T>
     {
-        if (list == null || list.Count <= 1) return;
+        if (list.Count <= 1) return;
 
-        var runs = new List<List<T>>();
+        var runs = new List<(int start, int length)>();
+
         int i = 0;
         while (i < list.Count)
         {
             int start = i;
             i++;
 
-            if (i < list.Count && list[start].CompareTo(list[i]) > 0)
+            if (i < list.Count && list[i - 1].CompareTo(list[i]) > 0)
             {
-                while (i < list.Count && list[i - 1].CompareTo(list[i]) > 0) i++;
-                var run = list.GetRange(start, i - start);
-                run.Reverse();
-                runs.Add(run);
+                while (i < list.Count && list[i - 1].CompareTo(list[i]) > 0)
+                    i++;
+                list.Reverse(start, i - start);
             }
             else
             {
-                while (i < list.Count && list[i - 1].CompareTo(list[i]) <= 0) i++;
-                runs.Add(list.GetRange(start, i - start));
+                while (i < list.Count && list[i - 1].CompareTo(list[i]) <= 0)
+                    i++;
             }
-        }
 
-        if (runs.Count == 1)
-        {
-            list.Clear();
-            list.AddRange(runs[0]);
-            return;
+            runs.Add((start, i - start));
         }
 
         while (runs.Count > 1)
         {
-            var newRuns = new List<List<T>>();
+            var newRuns = new List<(int start, int length)>();
+
             for (int r = 0; r < runs.Count; r += 2)
             {
-                if (r + 1 < runs.Count)
-                    newRuns.Add(MergeTwo(runs[r], runs[r + 1]));
-                else
+                if (r + 1 >= runs.Count)
+                {
                     newRuns.Add(runs[r]);
+                    continue;
+                }
+
+                var (s1, len1) = runs[r];
+                var (s2, len2) = runs[r + 1];
+
+                Merge(list, s1, len1, s2, len2);
+
+                newRuns.Add((s1, len1 + len2));
             }
+
             runs = newRuns;
         }
-
-        list.Clear();
-        list.AddRange(runs[0]);
-
-        List<T> MergeTwo(List<T> a, List<T> b)
-        {
-            var merged = new List<T>(a.Count + b.Count);
-            int ia = 0, ib = 0;
-            while (ia < a.Count && ib < b.Count)
-            {
-                if (a[ia].CompareTo(b[ib]) <= 0)
-                    merged.Add(a[ia++]);
-                else
-                    merged.Add(b[ib++]);
-            }
-            if (ia < a.Count) merged.AddRange(a.GetRange(ia, a.Count - ia));
-            if (ib < b.Count) merged.AddRange(b.GetRange(ib, b.Count - ib));
-            return merged;
-        }
     }
+
+    static void Merge<T>(List<T> list, int start1, int len1, int start2, int len2) where T : IComparable<T>
+    {
+        var left = list.GetRange(start1, len1);
+        var right = list.GetRange(start2, len2);
+
+        int i = 0, j = 0, k = start1;
+
+        while (i < left.Count && j < right.Count)
+        {
+            if (left[i].CompareTo(right[j]) <= 0)
+                list[k++] = left[i++];
+            else
+                list[k++] = right[j++];
+        }
+
+        while (i < left.Count)
+            list[k++] = left[i++];
+
+        while (j < right.Count)
+            list[k++] = right[j++];
+    }
+
 
     // INTRO SORT
     // Time Complexity: O(n log n)
     // Space Complexity: O(log n)
     public static void IntroSort<T>(List<T> list) where T : IComparable<T>
     {
-        int depthLimit = (int)(2 * Math.Log(list.Count));
+        int n = list.Count;
+        int depthLimit = (int)(2 * Math.Log(n, 2));
 
         void Sort(int start, int end, int depth)
         {
-            int size = end - start;
-            if (size < 16)
+            int size = end - start + 1;
+
+            if (size <= 16)
             {
-                InsertionSort(list.GetRange(start, size));
+                InsertionSortRange(list, start, end);
                 return;
             }
 
             if (depth == 0)
             {
-                HeapSort(list);
+                HeapSortRange(list, start, end);
                 return;
             }
 
             int p = Partition(start, end);
-            Sort(start, p, depth - 1);
+            Sort(start, p - 1, depth - 1);
             Sort(p + 1, end, depth - 1);
         }
 
         int Partition(int low, int high)
         {
             T pivot = list[(low + high) / 2];
-            int i = low, j = high;
-            while (true)
+            int i = low;
+            int j = high;
+
+            while (i <= j)
             {
                 while (list[i].CompareTo(pivot) < 0) i++;
                 while (list[j].CompareTo(pivot) > 0) j--;
-                if (i >= j) return j;
-                (list[i], list[j]) = (list[j], list[i]);
-                i++; j--;
+
+                if (i <= j)
+                {
+                    (list[i], list[j]) = (list[j], list[i]);
+                    i++;
+                    j--;
+                }
+            }
+
+            return i - 1;
+        }
+
+        Sort(0, n - 1, depthLimit);
+    }
+
+    // Helper: Insertion sort for a range
+    static void InsertionSortRange<T>(List<T> list, int start, int end) where T : IComparable<T>
+    {
+        for (int i = start + 1; i <= end; i++)
+        {
+            T key = list[i];
+            int j = i - 1;
+            while (j >= start && list[j].CompareTo(key) > 0)
+            {
+                list[j + 1] = list[j];
+                j--;
+            }
+            list[j + 1] = key;
+        }
+    }
+
+    // Helper: Heap sort for a range
+    static void HeapSortRange<T>(List<T> list, int start, int end) where T : IComparable<T>
+    {
+        int size = end - start + 1;
+
+        void Heapify(int root, int length)
+        {
+            int largest = root;
+            int left = 2 * root + 1;
+            int right = 2 * root + 2;
+
+            if (left < length && list[start + left].CompareTo(list[start + largest]) > 0)
+                largest = left;
+            if (right < length && list[start + right].CompareTo(list[start + largest]) > 0)
+                largest = right;
+
+            if (largest != root)
+            {
+                (list[start + root], list[start + largest]) = (list[start + largest], list[start + root]);
+                Heapify(largest, length);
             }
         }
 
-        Sort(0, list.Count - 1, depthLimit);
+        for (int i = size / 2 - 1; i >= 0; i--)
+            Heapify(i, size);
+
+        for (int i = size - 1; i > 0; i--)
+        {
+            (list[start], list[start + i]) = (list[start + i], list[start]);
+            Heapify(0, i);
+        }
     }
 
     // BITONIC SORT
@@ -438,30 +507,39 @@ public static class SortingAlgorithms
     // Space Complexity: O(n + k)
     public static void RadixSortMSD(List<int> list)
     {
-        void SortMSD(List<int> arr, int exp)
+        if (list == null || list.Count <= 1) return;
+
+        int max = list.Max(x => Math.Abs(x));
+        int exp = 1;
+        while (max / exp >= 10) exp *= 10;
+
+        MSD(list, 0, list.Count, exp);
+    }
+
+    static void MSD(List<int> arr, int start, int end, int exp)
+    {
+        if (exp == 0 || end - start <= 1) return;
+
+        List<int>[] buckets = new List<int>[19];
+        for (int i = 0; i < buckets.Length; i++) buckets[i] = new List<int>();
+
+        for (int i = start; i < end; i++)
         {
-            if (exp == 0 || arr.Count <= 1) return;
-
-            List<int>[] buckets = new List<int>[10];
-            for (int i = 0; i < 10; i++)
-                buckets[i] = new List<int>();
-
-            foreach (int num in arr)
-                buckets[(num / exp) % 10].Add(num);
-
-            arr.Clear();
-            for (int i = 0; i < 10; i++)
-            {
-                SortMSD(buckets[i], exp / 10);
-                arr.AddRange(buckets[i]);
-            }
+            int digit = (arr[i] / exp) % 10;
+            buckets[digit + 9].Add(arr[i]);
         }
 
-        int max = list.Max();
-        int exp = 1;
-        while (max / exp >= 10)
-            exp *= 10;
+        int index = start;
+        for (int b = 0; b < buckets.Length; b++)
+        {
+            var bucket = buckets[b];
+            if (bucket.Count == 0) continue;
 
-        SortMSD(list, exp);
+            for (int k = 0; k < bucket.Count; k++)
+                arr[index++] = bucket[k];
+
+            MSD(arr, index - bucket.Count, index, exp / 10);
+        }
     }
+
 }
