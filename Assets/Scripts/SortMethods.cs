@@ -163,6 +163,16 @@ public static class SortingAlgorithms
                 list[j] = temp;
             }
         }
+
+
+        int m = 15;
+        int aux = m;
+
+        for (int j = 0; j < m; j = aux / 2)
+        {
+            // log_2 8 = 3
+            // log_2 n 
+        }
     }
 
     // QUICK SORT
@@ -342,7 +352,7 @@ public static class SortingAlgorithms
     //Igual que mergeSort, pero recibe parametros para crear las particiones que se quieren
     static void Merge<T>(List<T> list, int start1, int len1, int start2, int len2) where T : IComparable<T>
     {
-        
+
 
         var left = list.GetRange(start1, len1);
         var right = list.GetRange(start2, len2);
